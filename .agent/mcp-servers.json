@@ -1,0 +1,21 @@
+{
+    "mcp": {
+        "servers": {
+            "docker-gateway": {
+                "command": "docker",
+                "args": [
+                    "mcp",
+                    "gateway",
+                    "run"
+                ],
+                "type": "stdio",
+                "description": "Docker MCP Gateway - The 'Master' server that provides access to ALL other Docker MCP servers (Playwright, AWS, Postgres, etc.) automatically."
+            }
+        }
+    },
+    "_metadata": {
+        "version": "2.0.0",
+        "lastUpdated": "2026-01-03",
+        "note": "Use this single configuration to enable all Docker-based MCP capabilities."
+    }
+}

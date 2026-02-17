@@ -1,0 +1,14 @@
+tensorflow==2.15.0
+deepface
+tf-keras
+qdrant-client
+pandas
+fastapi
+uvicorn
+python-multipart
+opencv-python
+Pillow
+numpy
+tqdm
+jinja2
+requests

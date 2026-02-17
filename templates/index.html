@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification System</title>
+    <meta name="description"
+        content="AI-Powered Facial Recognition Identity Verification System using ArcFace and Qdrant">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════ */
+        /*  DESIGN SYSTEM                              */
+        /* ═══════════════════════════════════════════ */
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-cyan: #06b6d4;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+            --gradient-main: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+            --gradient-glow: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(59, 130, 246, 0.15) 50%, rgba(139, 92, 246, 0.15) 100%);
+            --shadow-glow: 0 0 30px rgba(6, 182, 212, 0.2);
+            --radius: 16px;
+            --radius-sm: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  ANIMATED BACKGROUND                        */
+        /* ═══════════════════════════════════════════ */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+        }
+
+        .bg-orbs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: rgba(6, 182, 212, 0.15);
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 350px;
+            height: 350px;
+            background: rgba(139, 92, 246, 0.12);
+            bottom: -80px;
+            right: -80px;
+            animation-delay: -7s;
+        }
+
+        .orb-3 {
+            width: 250px;
+            height: 250px;
+            background: rgba(59, 130, 246, 0.1);
+            top: 50%;
+            left: 50%;
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(30px, -40px) scale(1.05);
+            }
+
+            50% {
+                transform: translate(-20px, 20px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(40px, 30px) scale(1.02);
+            }
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  LAYOUT                                     */
+        /* ═══════════════════════════════════════════ */
+        .app-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 30px 20px 60px;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  HEADER                                     */
+        /* ═══════════════════════════════════════════ */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent-cyan);
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .header-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .header h1 {
+            font-size: 38px;
+            font-weight: 800;
+            background: var(--gradient-main);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .header p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  STATS BAR                                  */
+        /* ═══════════════════════════════════════════ */
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 100px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .stat-chip .value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  TABS                                       */
+        /* ═══════════════════════════════════════════ */
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 24px;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px 16px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: var(--transition);
+            border: none;
+            background: transparent;
+            user-select: none;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .nav-tab.active {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  GLASS CARD                                 */
+        /* ═══════════════════════════════════════════ */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  WEBCAM SCANNER                             */
+        /* ═══════════════════════════════════════════ */
+        .scanner-section {
+            text-align: center;
+        }
+
+        .webcam-container {
+            position: relative;
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto 24px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 4/3;
+            border: 2px solid var(--border-glass);
+        }
+
+        .webcam-container video,
+        .webcam-container canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .webcam-container canvas {
+            display: none;
+        }
+
+        /* Webcam placeholder */
+        .webcam-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+            font-size: 14px;
+            background: linear-gradient(180deg, rgba(10, 14, 23, 0.9) 0%, rgba(17, 24, 39, 0.95) 100%);
+        }
+
+        .webcam-placeholder .cam-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .webcam-placeholder.hidden {
+            display: none;
+        }
+
+        /* Scan overlay */
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            display: none;
+        }
+
+        .scan-overlay.active {
+            display: block;
+        }
+
+        /* Corner brackets */
+        .scan-corners::before,
+        .scan-corners::after,
+        .scan-corners .c1::before,
+        .scan-corners .c1::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-color: var(--accent-cyan);
+            border-style: solid;
+            border-width: 0;
+        }
+
+        .scan-corners::before {
+            top: 20px;
+            left: 20px;
+            border-top-width: 3px;
+            border-left-width: 3px;
+            border-top-left-radius: 8px;
+        }
+
+        .scan-corners::after {
+            top: 20px;
+            right: 20px;
+            border-top-width: 3px;
+            border-right-width: 3px;
+            border-top-right-radius: 8px;
+        }
+
+        .scan-corners .c1::before {
+            bottom: 20px;
+            left: 20px;
+            border-bottom-width: 3px;
+            border-left-width: 3px;
+            border-bottom-left-radius: 8px;
+        }
+
+        .scan-corners .c1::after {
+            bottom: 20px;
+            right: 20px;
+            border-bottom-width: 3px;
+            border-right-width: 3px;
+            border-bottom-right-radius: 8px;
+        }
+
+        /* Scanning laser line */
+        .scan-line {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            box-shadow: 0 0 15px var(--accent-cyan), 0 0 40px rgba(6, 182, 212, 0.3);
+            animation: scanDown 2s ease-in-out infinite;
+        }
+
+        @keyframes scanDown {
+            0% {
+                top: 25px;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: calc(100% - 25px);
+                opacity: 0;
+            }
+        }
+
+        .scan-status-text {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent-cyan);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  BUTTONS                                    */
+        /* ═══════════════════════════════════════════ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 200px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-main);
+            color: white;
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-glass);
+            color: var(--text-primary);
+            border: 1px solid var(--border-glass);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  RESULT CARD                                */
+        /* ═══════════════════════════════════════════ */
+        .result-container {
+            margin-top: 24px;
+            display: none;
+        }
+
+        .result-container.visible {
+            display: block;
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-card {
+            padding: 24px 28px;
+            border-radius: var(--radius);
+            border: 1px solid;
+        }
+
+        .result-card.success {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .result-card.failure {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .result-card.info {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .result-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .result-card.success .result-icon {
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .result-card.failure .result-icon {
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .result-card.info .result-icon {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .result-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .result-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .result-stat {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: var(--radius-sm);
+            text-align: center;
+        }
+
+        .result-stat .label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .result-stat .val {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .result-card.success .result-stat .val {
+            color: var(--accent-green);
+        }
+
+        .result-card.failure .result-stat .val {
+            color: var(--accent-red);
+        }
+
+        /* Confidence bar */
+        .confidence-bar-container {
+            margin-top: 16px;
+        }
+
+        .confidence-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .confidence-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: var(--gradient-main);
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 0%;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  FORM ELEMENTS                              */
+        /* ═══════════════════════════════════════════ */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        input[type="file"].form-input {
+            padding: 10px 16px;
+        }
+
+        input[type="file"].form-input::file-selector-button {
+            background: var(--gradient-main);
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 12px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .section-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  LOADING SPINNER                            */
+        /* ═══════════════════════════════════════════ */
+        .spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner.visible {
+            display: block;
+        }
+
+        .spinner-ring {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, 0.08);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner-text {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  FOOTER                                     */
+        /* ═══════════════════════════════════════════ */
+        .footer {
+            text-align: center;
+            margin-top: 48px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+        /* ═══════════════════════════════════════════ */
+        /*  RESPONSIVE                                 */
+        /* ═══════════════════════════════════════════ */
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .stats-bar {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .glass-card {
+                padding: 20px;
+            }
+
+            .btn {
+                min-width: unset;
+                width: 100%;
+            }
+
+            .result-stats {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background effects -->
+    <div class="bg-grid"></div>
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="app-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-badge">
+                <span class="dot"></span>
+                System Online
+            </div>
+            <h1>🔐 Identity Verification</h1>
+            <p>AI-Powered Facial Recognition · ArcFace + Qdrant</p>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-chip">
+                🧠 Model: <span class="value">ArcFace</span>
+            </div>
+            <div class="stat-chip">
+                📊 Faces in DB: <span class="value" id="faceCount">...</span>
+            </div>
+            <div class="stat-chip">
+                ⚡ Embedding: <span class="value">512D</span>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('scan')">📷 Face Scan</button>
+            <button class="nav-tab" onclick="switchTab('enroll')">📝 Enroll</button>
+            <button class="nav-tab" onclick="switchTab('verify')">🔍 Verify 1:1</button>
+            <button class="nav-tab" onclick="switchTab('identify')">🆔 Identify 1:N</button>
+        </nav>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!--  TAB 1: FACE SCAN (PRIMARY)                 -->
+        <!-- ═══════════════════════════════════════════ -->
+        <div id="panel-scan" class="tab-panel active">
+            <div class="glass-card scanner-section">
+                <h2 class="section-title">Live Face Scanner</h2>
+                <p class="section-desc">Click to activate your webcam, then scan your face for instant recognition.</p>
+
+                <div class="webcam-container" id="webcamContainer">
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    <canvas id="webcamCanvas"></canvas>
+
+                    <div class="webcam-placeholder" id="webcamPlaceholder">
+                        <div class="cam-icon">📷</div>
+                        <div>Camera not active</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Click "Start Camera" below</div>
+                    </div>
+
+                    <div class="scan-overlay" id="scanOverlay">
+                        <div class="scan-corners">
+                            <div class="c1"></div>
+                        </div>
+                        <div class="scan-line"></div>
+                        <div class="scan-status-text">Scanning Face...</div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="btnCamera" onclick="toggleCamera()">
+                        📷 Start Camera
+                    </button>
+                    <button class="btn btn-primary" id="btnScan" onclick="scanFace()" disabled>
+                        🔍 Scan My Face
+                    </button>
+                </div>
+
+                <div class="spinner" id="scanSpinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-text">Analyzing facial features...</div>
+                </div>
+
+                <div class="result-container" id="scanResult"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!--  TAB 2: ENROLL                              -->
+        <!-- ═══════════════════════════════════════════ -->
+        <div id="panel-enroll" class="tab-panel">
+            <div class="glass-card">
+                <h2 class="section-title">Enroll New Identity</h2>
+                <p class="section-desc">Add a person to the face database by uploading their photo.</p>
+
+                <div class="form-group">
+                    <label class="form-label">Full Name / User ID</label>
+                    <input type="text" class="form-input" id="enrollName" placeholder="e.g. John Doe">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Face Photo</label>
+                    <input type="file" class="form-input" id="enrollFile" accept="image/*">
+                </div>
+                <button class="btn btn-primary" onclick="enrollUser()" style="width: 100%;">
+                    📝 Enroll Identity
+                </button>
+
+                <div class="spinner" id="enrollSpinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-text">Creating face embedding...</div>
+                </div>
+
+                <div class="result-container" id="enrollResult"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!--  TAB 3: VERIFY 1:1                          -->
+        <!-- ═══════════════════════════════════════════ -->
+        <div id="panel-verify" class="tab-panel">
+            <div class="glass-card">
+                <h2 class="section-title">Verify Identity (1:1)</h2>
+                <p class="section-desc">Compare two photos to check if they belong to the same person.</p>
+
+                <div class="form-group">
+                    <label class="form-label">Image 1 (ID Card / Reference)</label>
+                    <input type="file" class="form-input" id="verifyImg1" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Image 2 (Selfie / Probe)</label>
+                    <input type="file" class="form-input" id="verifyImg2" accept="image/*">
+                </div>
+                <button class="btn btn-primary" onclick="verifyIdentity()" style="width: 100%;">
+                    🔍 Compare Faces
+                </button>
+
+                <div class="spinner" id="verifySpinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-text">Computing cosine similarity...</div>
+                </div>
+
+                <div class="result-container" id="verifyResult"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!--  TAB 4: IDENTIFY 1:N                        -->
+        <!-- ═══════════════════════════════════════════ -->
+        <div id="panel-identify" class="tab-panel">
+            <div class="glass-card">
+                <h2 class="section-title">Identify Person (1:N)</h2>
+                <p class="section-desc">Search the entire database to find who this person is.</p>
+
+                <div class="form-group">
+                    <label class="form-label">Query Image</label>
+                    <input type="file" class="form-input" id="identifyFile" accept="image/*">
+                </div>
+                <button class="btn btn-primary" onclick="identifyPerson()" style="width: 100%;">
+                    🆔 Search Database
+                </button>
+
+                <div class="spinner" id="identifySpinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-text">Searching vector database (HNSW)...</div>
+                </div>
+
+                <div class="result-container" id="identifyResult"></div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Identity Verification System · ArcFace Model · Qdrant Vector DB · FastAPI</p>
+        </footer>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  JAVASCRIPT                                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <script>
+        // ─── State ───────────────────────────────
+        let cameraStream = null;
+        let cameraActive = false;
+
+        // ─── Init ────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDbStats();
+        });
+
+        async function fetchDbStats() {
+            try {
+                const res = await fetch('/db-stats');
+                const data = await res.json();
+                document.getElementById('faceCount').textContent = data.total_faces || 0;
+            } catch {
+                document.getElementById('faceCount').textContent = '–';
+            }
+        }
+
+        // ─── Tab Switching ───────────────────────
+        function switchTab(tabId) {
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach((t, i) => {
+                const tabs = ['scan', 'enroll', 'verify', 'identify'];
+                t.classList.toggle('active', tabs[i] === tabId);
+            });
+
+            // Update panels
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-' + tabId).classList.add('active');
+
+            // Hide all results
+            document.querySelectorAll('.result-container').forEach(r => r.classList.remove('visible'));
+        }
+
+        // ─── Camera Controls ─────────────────────
+        async function toggleCamera() {
+            if (cameraActive) {
+                stopCamera();
+            } else {
+                await startCamera();
+            }
+        }
+
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+                });
+
+                const video = document.getElementById('webcamVideo');
+                video.srcObject = cameraStream;
+                cameraActive = true;
+
+                document.getElementById('webcamPlaceholder').classList.add('hidden');
+                document.getElementById('btnCamera').innerHTML = '⏹️ Stop Camera';
+                document.getElementById('btnScan').disabled = false;
+
+            } catch (err) {
+                showResult('scanResult', 'failure', '❌ Camera Error',
+                    'Could not access webcam. Please allow camera permissions.',
+                    [{ label: 'Error', value: err.message }]);
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            cameraActive = false;
+
+            const video = document.getElementById('webcamVideo');
+            video.srcObject = null;
+
+            document.getElementById('webcamPlaceholder').classList.remove('hidden');
+            document.getElementById('btnCamera').innerHTML = '📷 Start Camera';
+            document.getElementById('btnScan').disabled = true;
+            document.getElementById('scanOverlay').classList.remove('active');
+        }
+
+        // ─── Face Scan ──────────────────────────
+        async function scanFace() {
+            if (!cameraActive) return;
+
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            const overlay = document.getElementById('scanOverlay');
+            const spinner = document.getElementById('scanSpinner');
+
+            // Capture frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+
+            // Show scanning animation
+            overlay.classList.add('active');
+            document.getElementById('btnScan').disabled = true;
+            document.getElementById('scanResult').classList.remove('visible');
+            spinner.classList.add('visible');
+
+            try {
+                const res = await fetch('/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await res.json();
+
+                overlay.classList.remove('active');
+                spinner.classList.remove('visible');
+                document.getElementById('btnScan').disabled = false;
+
+                if (data.error && data.error.includes('No face')) {
+                    showResult('scanResult', 'failure', '😐 No Face Detected',
+                        'Please position your face clearly in the camera view.',
+                        []);
+                } else if (data.found) {
+                    showResult('scanResult', 'success', '✅ Identity Verified',
+                        `Match found: ${data.user_id}`,
+                        [
+                            { label: 'Identity', value: data.user_id },
+                            { label: 'Confidence', value: data.confidence + '%' },
+                            { label: 'Score', value: data.score.toFixed(4) }
+                        ],
+                        data.confidence
+                    );
+                } else {
+                    showResult('scanResult', 'failure', '❓ Unknown Person',
+                        'No match found in the database.',
+                        [
+                            { label: 'Status', value: 'Not Found' },
+                            { label: 'Score', value: data.score.toFixed(4) }
+                        ]);
+                }
+
+            } catch (err) {
+                overlay.classList.remove('active');
+                spinner.classList.remove('visible');
+                document.getElementById('btnScan').disabled = false;
+                showResult('scanResult', 'failure', '❌ Error',
+                    err.message, []);
+            }
+        }
+
+        // ─── Enroll ─────────────────────────────
+        async function enrollUser() {
+            const name = document.getElementById('enrollName').value.trim();
+            const file = document.getElementById('enrollFile').files[0];
+            if (!name || !file) {
+                alert('Please enter a name and select a photo.');
+                return;
+            }
+
+            const spinner = document.getElementById('enrollSpinner');
+            spinner.classList.add('visible');
+            document.getElementById('enrollResult').classList.remove('visible');
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/enroll', { method: 'POST', body: formData });
+                const data = await res.json();
+                spinner.classList.remove('visible');
+
+                if (data.success) {
+                    showResult('enrollResult', 'success', '✅ Enrolled Successfully',
+                        data.message, [{ label: 'User ID', value: name }]);
+                    fetchDbStats(); // refresh count
+                } else {
+                    showResult('enrollResult', 'failure', '❌ Enrollment Failed',
+                        data.message, []);
+                }
+            } catch (err) {
+                spinner.classList.remove('visible');
+                showResult('enrollResult', 'failure', '❌ Error', err.message, []);
+            }
+        }
+
+        // ─── Verify 1:1 ────────────────────────
+        async function verifyIdentity() {
+            const img1 = document.getElementById('verifyImg1').files[0];
+            const img2 = document.getElementById('verifyImg2').files[0];
+            if (!img1 || !img2) {
+                alert('Please select both images.');
+                return;
+            }
+
+            const spinner = document.getElementById('verifySpinner');
+            spinner.classList.add('visible');
+            document.getElementById('verifyResult').classList.remove('visible');
+
+            const formData = new FormData();
+            formData.append('id_card', img1);
+            formData.append('selfie', img2);
+
+            try {
+                const res = await fetch('/verify', { method: 'POST', body: formData });
+                const data = await res.json();
+                spinner.classList.remove('visible');
+
+                if (data.error) {
+                    showResult('verifyResult', 'failure', '❌ Error', data.error, []);
+                } else if (data.verified) {
+                    const dist = typeof data.distance === 'number' ? data.distance.toFixed(4) : 'N/A';
+                    showResult('verifyResult', 'success', '✅ Faces Match!',
+                        'These images are the same person.',
+                        [
+                            { label: 'Distance', value: dist },
+                            { label: 'Threshold', value: data.threshold || 'N/A' },
+                            { label: 'Model', value: data.model || 'ArcFace' }
+                        ]);
+                } else {
+                    const dist = typeof data.distance === 'number' ? data.distance.toFixed(4) : 'N/A';
+                    showResult('verifyResult', 'failure', '❌ No Match',
+                        'These images are NOT the same person.',
+                        [
+                            { label: 'Distance', value: dist },
+                            { label: 'Threshold', value: data.threshold || 'N/A' },
+                            { label: 'Model', value: data.model || 'ArcFace' }
+                        ]);
+                }
+            } catch (err) {
+                spinner.classList.remove('visible');
+                showResult('verifyResult', 'failure', '❌ Error', err.message, []);
+            }
+        }
+
+        // ─── Identify 1:N ───────────────────────
+        async function identifyPerson() {
+            const file = document.getElementById('identifyFile').files[0];
+            if (!file) {
+                alert('Please select an image.');
+                return;
+            }
+
+            const spinner = document.getElementById('identifySpinner');
+            spinner.classList.add('visible');
+            document.getElementById('identifyResult').classList.remove('visible');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/identify', { method: 'POST', body: formData });
+                const data = await res.json();
+                spinner.classList.remove('visible');
+
+                if (data.found) {
+                    const conf = (data.score * 100).toFixed(1);
+                    showResult('identifyResult', 'success', '✅ Identity Found',
+                        `Match: ${data.user_id}`,
+                        [
+                            { label: 'Identity', value: data.user_id },
+                            { label: 'Confidence', value: conf + '%' },
+                            { label: 'Score', value: data.score.toFixed(4) }
+                        ],
+                        parseFloat(conf)
+                    );
+                } else {
+                    showResult('identifyResult', 'failure', '❓ Unknown Person',
+                        'No match found in database.',
+                        [{ label: 'Status', value: 'Not in DB' }]);
+                }
+            } catch (err) {
+                spinner.classList.remove('visible');
+                showResult('identifyResult', 'failure', '❌ Error', err.message, []);
+            }
+        }
+
+        // ─── Result Display ─────────────────────
+        function showResult(containerId, type, title, subtitle, stats, confidence) {
+            const container = document.getElementById(containerId);
+
+            let statsHtml = '';
+            if (stats && stats.length > 0) {
+                statsHtml = '<div class="result-stats">' +
+                    stats.map(s => `
+                        <div class="result-stat">
+                            <div class="label">${s.label}</div>
+                            <div class="val">${s.value}</div>
+                        </div>
+                    `).join('') +
+                    '</div>';
+            }
+
+            let confidenceHtml = '';
+            if (confidence !== undefined && confidence > 0) {
+                confidenceHtml = `
+                    <div class="confidence-bar-container">
+                        <div class="confidence-bar-label">
+                            <span>Confidence</span>
+                            <span>${confidence}%</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-bar-fill" id="confFill-${containerId}"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const icon = type === 'success' ? '✅' : type === 'info' ? 'ℹ️' : '⚠️';
+
+            container.innerHTML = `
+                <div class="result-card ${type}">
+                    <div class="result-header">
+                        <div class="result-icon">${icon}</div>
+                        <div>
+                            <div class="result-title">${title}</div>
+                            <div class="result-subtitle">${subtitle}</div>
+                        </div>
+                    </div>
+                    ${statsHtml}
+                    ${confidenceHtml}
+                </div>
+            `;
+
+            container.classList.add('visible');
+
+            // Animate confidence bar
+            if (confidence !== undefined && confidence > 0) {
+                setTimeout(() => {
+                    const fill = document.getElementById('confFill-' + containerId);
+                    if (fill) fill.style.width = confidence + '%';
+                }, 100);
+            }
+        }
+    </script>
+</body>
+
+</html>

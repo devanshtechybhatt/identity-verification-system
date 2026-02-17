@@ -1,0 +1,1 @@
+We are developing an professional level app for facial recognination which should be on par with where we are showcasing it we care showcasing it to Harvard admission time
